@@ -42,21 +42,26 @@ jobs:
 
       - name: Commit and Push Build Artifacts
         run: |
-          # 1. Configuration
-          git config user.name github-actions[bot]
-          git config user.email github-actions[bot]@users.noreply.github.com
-          
-          # 2. Prepare the build directory
-          # Check out the target branch (or create it if it doesn't exist)
-          git checkout ${{ env.BUILD_BRANCH }} || git checkout --orphan ${{ env.BUILD_BRANCH }}
-          
-          # 3. Clean up existing files (except .git)
-          git rm -rf .
-          
-          # 4. Copy the new build files from 'dist'
-          cp -r dist/. . 
-          
-          # 5. Commit and Push
-          git add .
-          git commit -m "Deployment: Automated build $GITHUB_SHA"
-          git push origin ${{ env.BUILD_BRANCH }}
+            # 1. Configuration
+            git config user.name github-actions[bot]
+            git config user.email github-actions[bot]@users.noreply.github.com
+            
+            # 2. Prepare the build directory
+            # Check out the target branch (or create it if it doesn't exist)
+            git checkout ${{ env.BUILD_BRANCH }} || git checkout --orphan ${{ env.BUILD_BRANCH }}
+            
+            # 3. Clean up existing files (except .git)
+            git rm -rf .
+            # Remove all untracked files and directories (like node_modules, .git, etc.)
+            # The -d flag removes directories, the -f flag forces removal, the -x flag ignores .gitignore rules.
+            git clean -fdx
+
+            # 4. Copy the new build files from 'dist'
+            # Use 'shopt -s dotglob' to ensure hidden files like .htaccess are copied (optional but safer)
+            shopt -s dotglob
+            cp -r dist/. . 
+            
+            # 5. Commit and Push
+            git add .
+            git commit -m "Deployment: Automated build $GITHUB_SHA"
+            git push origin ${{ env.BUILD_BRANCH }}
