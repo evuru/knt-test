@@ -4,7 +4,7 @@ import { FeatureCard, SLIDE_PURPLE, WHITE_STROKE_SHADOW } from "./Utils";
 /**
  * FeaturesSection: Highlights key app capabilities.
  */
-const FeaturesSection = () => (
+export const FeaturesSection = () => (
   <section className="py-16 md:py-24 bg-gray-900">
     <div className="container mx-auto px-4 md:px-8">
       <div className="text-center mb-12">
