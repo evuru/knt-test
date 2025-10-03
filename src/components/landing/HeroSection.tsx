@@ -13,8 +13,8 @@ export const HeroSection = () => {
     useEffect(() => {
             setCurrentSlideIndex(1);
         const interval = setInterval(() => {
-            // setCurrentSlideIndex(prev => (prev + 1) % SLIDE_DATA.length);
-            setCurrentSlideIndex(1);
+            setCurrentSlideIndex(prev => (prev + 1) % SLIDE_DATA.length);
+            // setCurrentSlideIndex(1);
         }, 3000);
         return () => clearInterval(interval);
     }, []);
