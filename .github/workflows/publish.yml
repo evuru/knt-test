@@ -10,6 +10,12 @@ jobs:
   build_and_commit:
     runs-on: ubuntu-latest
     
+     # ADD THIS SECTION: Explicitly grant write access to contents
+    permissions:
+      contents: write # This is the key permission needed for git push
+    #   pull-requests: write # Optional, but good practice for internal workflows
+
+    
     # Define the branch where the built files will be pushed
     env:
       BUILD_BRANCH: deployment 
