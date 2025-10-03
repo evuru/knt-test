@@ -1,0 +1,56 @@
+name: Build and Commit Artifacts
+
+on:
+  push:
+    branches:
+      - main # Trigger when code is pushed to the main development branch
+  workflow_dispatch:
+
+jobs:
+  build_and_commit:
+    runs-on: ubuntu-latest
+    
+    # Define the branch where the built files will be pushed
+    env:
+      BUILD_BRANCH: deployment 
+
+    steps:
+      - name: Checkout repository (main branch)
+        uses: actions/checkout@v4
+        with:
+          # Fetch depth 0 is needed for history manipulation in the commit step
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' 
+          cache: 'npm' 
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project (creates the 'dist' folder)
+        # Runs your script: "tsc -b && vite build"
+        run: npm run build
+
+      - name: Commit and Push Build Artifacts
+        run: |
+          # 1. Configuration
+          git config user.name github-actions[bot]
+          git config user.email github-actions[bot]@users.noreply.github.com
+          
+          # 2. Prepare the build directory
+          # Check out the target branch (or create it if it doesn't exist)
+          git checkout ${{ env.BUILD_BRANCH }} || git checkout --orphan ${{ env.BUILD_BRANCH }}
+          
+          # 3. Clean up existing files (except .git)
+          git rm -rf .
+          
+          # 4. Copy the new build files from 'dist'
+          cp -r dist/. . 
+          
+          # 5. Commit and Push
+          git add .
+          git commit -m "Deployment: Automated build $GITHUB_SHA"
+          git push origin ${{ env.BUILD_BRANCH }}
