@@ -7,18 +7,18 @@ on:
   workflow_dispatch:
 
 jobs:
-  build_and_commit:
-    runs-on: ubuntu-latest
-    
-     # ADD THIS SECTION: Explicitly grant write access to contents
+  build:
+    runs-on:
+      ubuntu-latest
+
+      # ADD THIS SECTION: Explicitly grant write access to contents
     permissions:
       contents: write # This is the key permission needed for git push
     #   pull-requests: write # Optional, but good practice for internal workflows
 
-    
     # Define the branch where the built files will be pushed
     env:
-      BUILD_BRANCH: deployment 
+      BUILD_BRANCH: deployment
 
     steps:
       - name: Checkout repository (main branch)
@@ -30,66 +30,70 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22' 
-          cache: 'npm' 
+          node-version: "22"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm install
 
       - name: Build project (creates the 'dist' folder)
         # Runs your script: "tsc -b && vite build"
-        run: npm run build
+        run:
+          npm run build
 
-    #   - name: Commit and Push Build Artifacts
-    #     run: |
-    #         # 1. Configuration
-    #         git config user.name github-actions[bot]
-    #         git config user.email github-actions[bot]@users.noreply.github.com
-            
-    #         # 2. Prepare the build directory
-    #         # Check out the target branch (or create it if it doesn't exist)
-    #         git checkout ${{ env.BUILD_BRANCH }} || git checkout --orphan ${{ env.BUILD_BRANCH }}
-            
-    #         # 3. Clean up existing files (except .git)
-    #         git rm -rf .
-    #         # Remove all untracked files and directories (like node_modules, .git, etc.)
-    #         # The -d flag removes directories, the -f flag forces removal, the -x flag ignores .gitignore rules.
-    #         git clean -fdx
+          # New Step: Save the build output
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-build
+          path: dist
+          # Retention time is optional, but helps keep storage clean
+          retention-days: 1
 
-    #         # 4. Copy the new build files from 'dist'
-    #         # Use 'shopt -s dotglob' to ensure hidden files like .htaccess are copied (optional but safer)
-    #         shopt -s dotglob
-    #         cp -r dist/. . 
-            
-    #         # 5. Commit and Push
-    #         git add .
-    #         git commit -m "Deployment: Automated build $GITHUB_SHA"
-    #         git push origin ${{ env.BUILD_BRANCH }}
+  deploy:
+    runs-on: ubuntu-latest
+    # Wait for the 'build' job to complete successfully
+    needs: build
 
+    permissions:
+      contents: write # Essential permission for pushing to the deployment branch
+
+    env:
+      BUILD_BRANCH: deployment
+
+    steps:
+      # Step 1: Checkout the Target Branch (essential for a clean commit)
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BUILD_BRANCH }}
+          # Use a different path to keep the workspace clean
+          path: ${{ env.BUILD_BRANCH }}
+
+      # Step 2: Download the built files
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-build
+          path: temp-dist
+
+      # Step 3: Prepare the push (moving files and committing)
       - name: Commit and Push Build Artifacts
         run: |
-            # 1. Configuration
-            git config user.name github-actions[bot]
-            git config user.email github-actions[bot]@users.noreply.github.com
-            
-            # Preserve the .git directory
-            mkdir -p temp_git_dir
-            mv .git temp_git_dir/
-            
-            # 2. Cleanup: Remove EVERYTHING in the working directory
-            rm -rf * .??*
-            
-            # 3. Restore .git
-            mv temp_git_dir/.git .
-            
-            # 4. Switch to the target branch (using --force to ensure switch works)
-            git checkout -f ${{ env.BUILD_BRANCH }} || git checkout --orphan ${{ env.BUILD_BRANCH }}
-            
-            # 5. Copy the new build files from 'dist'
-            cp -r dist/. . 
-            
-            # 6. Commit and Push
-            git add .
-            # Use the --allow-empty flag to avoid failure if no files actually changed
-            git commit --allow-empty -m "Deployment: Automated build $GITHUB_SHA"
-            git push origin ${{ env.BUILD_BRANCH }}
+          # 1. Configuration
+          cd ${{ env.BUILD_BRANCH }}
+          git config user.name github-actions[bot]
+          git config user.email github-actions[bot]@users.noreply.github.com
+
+          # 2. Cleanup: Remove existing files on the deployment branch
+          # Use find and xargs for robust deletion
+          find . -maxdepth 1 ! -name . -and ! -name .. -and ! -name .git -exec rm -rf {} \;
+
+          # 3. Copy the new build files from the downloaded artifact
+          # The temp-dist folder contains the contents of 'dist'
+          cp -r ../temp-dist/. . 
+
+          # 4. Commit and Push
+          git add .
+          git commit --allow-empty -m "Deployment: Automated build $GITHUB_SHA"
+          git push origin ${{ env.BUILD_BRANCH }}
